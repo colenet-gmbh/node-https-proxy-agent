@@ -23,7 +23,8 @@
   },
   "dependencies": {
     "agent-base": "^4.1.0",
-    "debug": "^3.1.0"
+    "debug": "^3.1.0",
+    "http-message-parser-ts": "0.0.5"
   },
   "devDependencies": {
     "mocha": "^3.4.2",

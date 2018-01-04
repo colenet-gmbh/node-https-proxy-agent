@@ -5,6 +5,7 @@
 var net = require('net');
 var tls = require('tls');
 var url = require('url');
+var httpMessageParser = require('http-message-parser-ts');
 var Agent = require('agent-base');
 var inherits = require('util').inherits;
 var debug = require('debug')('https-proxy-agent');
@@ -127,11 +128,10 @@ HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
       return;
     }
 
-    var firstLine = str.substring(0, str.indexOf('\r\n'));
-    var statusCode = +firstLine.split(' ')[1];
-    debug('got proxy server response: %o', firstLine);
+    var parser = new httpMessageParser.HttpMessageParser();
+    const response = parser.parseResponse(str);
 
-    if (200 == statusCode) {
+    if (200 == response.statusCode) {
       // 200 Connected status code!
       var sock = socket;
 
