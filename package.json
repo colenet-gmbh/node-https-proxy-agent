@@ -1,25 +1,29 @@
 {
   "name": "https-proxy-agent",
   "version": "2.1.1",
-  "description": "An HTTP(s) proxy `http.Agent` implementation for HTTPS",
+  "description": "An HTTP(s) proxy `http.Agent` implementation for HTTPS supporting NTLM authentication",
   "main": "./index.js",
   "scripts": {
     "test": "mocha --reporter spec"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/TooTallNate/node-https-proxy-agent.git"
+    "url": "git://github.com/colenet-gmbh/node-https-proxy-agent.git"
   },
   "keywords": [
     "https",
     "proxy",
     "endpoint",
-    "agent"
+    "agent",
+    "NTLM"
   ],
-  "author": "Nathan Rajlich <nathan@tootallnate.net> (http://n8.io/)",
+  "authors": [
+    "Nathan Rajlich <nathan@tootallnate.net> (http://n8.io/)",
+    "Ralf Waldvogel <ralf.waldvogel@colenet.de"
+  ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/TooTallNate/node-https-proxy-agent/issues"
+    "url": "https://github.com/colenet-gmbh/node-https-proxy-agent/issues"
   },
   "dependencies": {
     "agent-base": "^4.1.0",
