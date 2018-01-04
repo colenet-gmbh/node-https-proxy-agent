@@ -14,6 +14,8 @@ Since this agent implements the CONNECT HTTP method, it also works with other
 protocols that use this method when connecting over proxies (i.e. WebSockets).
 See the "Examples" section below for more.
 
+This fork is intended to support NTLM authentication.
+
 
 Installation
 ------------
