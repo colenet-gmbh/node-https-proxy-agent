@@ -9,7 +9,9 @@ var http = require('http');
 var https = require('https');
 var assert = require('assert');
 var Proxy = require('proxy');
+var NTLMProxy = require('proxy-proxy');
 var HttpsProxyAgent = require('../');
+
 
 describe('HttpsProxyAgent', function () {
 
@@ -206,7 +208,31 @@ describe('HttpsProxyAgent', function () {
         done();
       });
     });
-    it('should emit an "error" event on the `http.ClientRequest` if the proxy does not exist', function (done) {
+    it('should receive the 407 authorization code on the `http.ClientResponse`', function (done) {
+        // set a proxy authentication function for this test
+        proxy.authenticate = function (req, fn) {
+            // reject all requests
+            fn(null, false);
+        };
+
+        var proxyUri = process.env.HTTP_PROXY || process.env.http_proxy || 'http://127.0.0.1:' + proxyPort;
+        var agent = new HttpsProxyAgent(proxyUri);
+
+        var opts = {};
+        // `host` and `port` don't really matter since the proxy will reject anyways
+        opts.host = '127.0.0.1';
+        opts.port = 80;
+        opts.agent = agent;
+
+        var req = http.get(opts, function (res) {
+            assert.equal(407, res.statusCode);
+            assert('proxy-authenticate' in res.headers);
+            done();
+        });
+    });
+
+
+      it('should emit an "error" event on the `http.ClientRequest` if the proxy does not exist', function (done) {
       // port 4 is a reserved, but "unassigned" port
       var proxyUri = 'http://127.0.0.1:4';
       var agent = new HttpsProxyAgent(proxyUri);

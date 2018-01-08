@@ -157,8 +157,10 @@ HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
       fn(null, sock);
     }
     else if (407 == response.statusCode) {
+      console.log('<<<<<<<  authentication required');
       if (isNTLMNegotiation(response)) {
-
+        // we need to connect with new socket and send type1 and type3 messages
+          console.log('<<<<<<< ntlm authentication required');
       }
       else {
         cleanup();
@@ -235,24 +237,30 @@ HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
   socket.write(msg + '\r\n');
 };
 
+function findNTLM(val) {
+  return val.includes('NTLM');
+}
+
+function findNegotiate(val) {
+  return val.includes('Negotiate');
+}
+
 function isNTLMNegotiation(response) {
-  const findNTLM = function(val) {
-    return val.includes('NTLM');
-  };
   const headers = response.headers;
   if (headers) {
-    const proxyAuth = headers['proxy-authentication'];
+    const proxyAuth = headers['proxy-authenticate'];
     if (proxyAuth) {
-      const negotiation = proxyAuth.includes('Negotiation');
+      const negotiation = proxyAuth.find(findNegotiate);
       const ntlm = proxyAuth.find(findNTLM);
-      return negotiation && ntlm;
+      var result = (negotiation !== undefined && ntlm !== undefined);
+      return result;
     }
     else {
         return false;
     }
   }
   return false;
-}
+};
 
 function isDefaultPort(port, secure) {
   return Boolean((!secure && port === 80) || (secure && port === 443));

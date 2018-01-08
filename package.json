@@ -32,6 +32,8 @@
   },
   "devDependencies": {
     "mocha": "^3.4.2",
-    "proxy": "^0.2.4"
+    "proxy": "^0.2.4",
+    "proxy-proxy": "^0.0.4",
+    "rewire": "^3.0.2"
   }
 }
