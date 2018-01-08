@@ -155,7 +155,19 @@ HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
 
       cleanup();
       fn(null, sock);
-    } else {
+    }
+    else if (407 == response.statusCode) {
+      if (isNTLMNegotiation(response)) {
+
+      }
+      else {
+        cleanup();
+        buffers = buffered;
+        req.once('socket', onsocket);
+        fn(null, socket);
+      }
+    }
+    else {
       // some other status code that's not 200... need to re-play the HTTP header
       // "data" events onto the socket once the HTTP machinery is attached so that
       // the user can parse and handle the error status code
@@ -222,6 +234,25 @@ HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
 
   socket.write(msg + '\r\n');
 };
+
+function isNTLMNegotiation(response) {
+  const findNTLM = function(val) {
+    return val.includes('NTLM');
+  };
+  const headers = response.headers;
+  if (headers) {
+    const proxyAuth = headers['proxy-authentication'];
+    if (proxyAuth) {
+      const negotiation = proxyAuth.includes('Negotiation');
+      const ntlm = proxyAuth.find(findNTLM);
+      return negotiation && ntlm;
+    }
+    else {
+        return false;
+    }
+  }
+  return false;
+}
 
 function isDefaultPort(port, secure) {
   return Boolean((!secure && port === 80) || (secure && port === 443));
