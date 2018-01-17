@@ -23,7 +23,7 @@ module.exports = HttpsProxyAgent;
  * @api public
  */
 
-function HttpsProxyAgent(opts) {
+function HttpsProxyAgent(opts, sspi) {
   if (!(this instanceof HttpsProxyAgent)) return new HttpsProxyAgent(opts);
   if ('string' == typeof opts) opts = url.parse(opts);
   if (!opts)
@@ -57,6 +57,7 @@ function HttpsProxyAgent(opts) {
   }
 
   this.proxy = proxy;
+  this.sspi = sspi;
 }
 inherits(HttpsProxyAgent, Agent);
 
@@ -68,6 +69,7 @@ inherits(HttpsProxyAgent, Agent);
 
 HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
   var proxy = this.proxy;
+  var sspi  = this.sspi;
 
   // create a socket connection to the proxy server
   var socket;
@@ -119,7 +121,7 @@ HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
 
     if (!~str.indexOf('\r\n\r\n')) {
       // keep buffering
-      debug('have not received end of HTTP headers yet...');
+      console.info('have not received end of HTTP headers yet...');
       if (socket.read) {
         read();
       } else {
@@ -128,11 +130,13 @@ HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
       return;
     }
 
+    console.info('have  received end of HTTP headers : %o', str);
     var parser = new httpMessageParser.HttpMessageParser();
     const response = parser.parseResponse(str);
 
     if (200 == response.statusCode) {
       // 200 Connected status code!
+      console.info('<<<< Connection established');
       var sock = socket;
 
       // nullify the buffered data since we won't be needing it
@@ -157,10 +161,22 @@ HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
       fn(null, sock);
     }
     else if (407 == response.statusCode) {
-      console.log('<<<<<<<  authentication required');
-      if (isNTLMNegotiation(response)) {
+      if (isNTLMNegotiation(response) &&  sspi) {
+          console.info('<<<<<<< ntlm authentication required AND sspi module set');
         // we need to connect with new socket and send type1 and type3 messages
-          console.log('<<<<<<< ntlm authentication required');
+          var challenge = extractChallenge(response);
+          var nextRound = null;
+          if (challenge.length === 0) {
+            nextRound = sspi.generate_type1_message();
+          }
+          else {
+            var type_2 = Buffer.from(challenge, 'base64');
+            nextRound = sspi.generate_type3_message(type_2);
+          }
+          nextRound.toString('base64');
+          proxy.ntlmChallenge = nextRound.toString('base64');
+          var msg = createConnectRequest(opts, proxy, {});
+          socket.write(msg);
       }
       else {
         cleanup();
@@ -212,47 +228,54 @@ HttpsProxyAgent.prototype.callback = function connect(req, opts, fn) {
     socket.once('data', ondata);
   }
 
+  var msg = createConnectRequest(opts, proxy, {'Connection': 'close'} );
+  socket.write(msg);
+};
+
+function createConnectRequest(opts, proxy, additionalHeaders) {
+  function crlf() {return '\r\n'}
+
   var hostname = opts.host + ':' + opts.port;
-  var msg = 'CONNECT ' + hostname + ' HTTP/1.1\r\n';
+  var msg = 'CONNECT ' + hostname + ' HTTP/1.1' + crlf();
 
   var headers = Object.assign({}, proxy.headers);
   if (proxy.auth) {
-    headers['Proxy-Authorization'] =
-      'Basic ' + new Buffer(proxy.auth).toString('base64');
+      headers['Proxy-Authorization'] =
+          'Basic ' + new Buffer(proxy.auth).toString('base64');
   }
-
-  // the Host header should only include the port
-  // number when it is a non-standard port
+  console.info("<<<< proxy %o", proxy)
+  if (proxy.ntlmChallenge) {
+      headers['Proxy-Authorization'] =
+          'NTLM ' + proxy.ntlmChallenge;
+  }
   var host = opts.host;
   if (!isDefaultPort(opts.port, opts.secureEndpoint)) {
-    host += ':' + opts.port;
+      host += ':' + opts.port;
   }
   headers['Host'] = host;
 
-  headers['Connection'] = 'close';
   Object.keys(headers).forEach(function(name) {
-    msg += name + ': ' + headers[name] + '\r\n';
+      msg += name + ': ' + headers[name] + crlf();
   });
-
-  socket.write(msg + '\r\n');
-};
+  Object.keys(additionalHeaders).forEach(function(name) {
+      msg += name + ': ' + additionalHeaders[name] + crlf();
+  });
+  msg += crlf();
+  return msg;
+}
 
 function findNTLM(val) {
   return val.includes('NTLM');
 }
 
-function findNegotiate(val) {
-  return val.includes('Negotiate');
-}
 
 function isNTLMNegotiation(response) {
   const headers = response.headers;
   if (headers) {
     const proxyAuth = headers['proxy-authenticate'];
     if (proxyAuth) {
-      const negotiation = proxyAuth.find(findNegotiate);
       const ntlm = proxyAuth.find(findNTLM);
-      var result = (negotiation !== undefined && ntlm !== undefined);
+      var result = (ntlm !== undefined);
       return result;
     }
     else {
@@ -260,7 +283,23 @@ function isNTLMNegotiation(response) {
     }
   }
   return false;
-};
+}
+
+function extractChallenge(response) {
+    const headers = response.headers;
+    var result = '';
+    if (headers) {
+        const proxyAuth = headers['proxy-authenticate'];
+        if (proxyAuth) {
+            const ntlm = proxyAuth.find(findNTLM);
+            const parts = ntlm.split(' ');
+            if (parts.length > 1) {
+                result = parts[1];
+            }
+        }
+    }
+    return result;
+}
 
 function isDefaultPort(port, secure) {
   return Boolean((!secure && port === 80) || (secure && port === 443));
