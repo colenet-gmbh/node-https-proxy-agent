@@ -24,7 +24,7 @@ module.exports = HttpsProxyAgent;
  */
 
 function HttpsProxyAgent(opts, sspi) {
-  if (!(this instanceof HttpsProxyAgent)) return new HttpsProxyAgent(opts);
+  if (!(this instanceof HttpsProxyAgent)) return new HttpsProxyAgent(opts, sspi);
   if ('string' == typeof opts) opts = url.parse(opts);
   if (!opts)
     throw new Error(
